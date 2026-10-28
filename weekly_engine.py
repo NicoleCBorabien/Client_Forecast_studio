@@ -117,7 +117,7 @@ def _fit_predict(series, kind, order=None, extra=None):
     return float(_future(series, kind, 1, order, extra)[0])
 
 
-def evaluate_series(series, horizon):
+def evaluate_series(series, horizon, progress=None):
     """Compare only ARIMA and undamped Holt trend on identical rolling holdout weeks.
 
     RMSE is sqrt(mean((actual-prediction)**2)), on the stored fraction scale.
@@ -128,6 +128,18 @@ def evaluate_series(series, horizon):
     validation = max(1, math.ceil(n * 0.20))
     training = n - validation
     actual = series[training:]
+    if progress: progress(0, 'Starting model evaluation')
+    # For an exactly constant history, Holt reproduces the level with zero error.
+    # Avoid dozens of redundant ARIMA fits; retain an allowed forecasting method.
+    if np.ptp(series) == 0:
+        preds = np.asarray([_fit_predict(series[:at], "Holt's Trend") for at in range(training,n)])
+        forecast = _future(series, "Holt's Trend", horizon)
+        score = float(np.sqrt(np.mean((actual-preds)**2)))
+        if progress: progress(1, 'Constant history evaluated with Holt trend')
+        return dict(model="Holt's Trend", order=None, extra=None, arima_rmse=float('inf'), holt_rmse=score,
+                    selected_rmse=score, validation_actual=actual, validation_pred=preds,
+                    forecast=np.maximum(0,forecast), train_weeks=training, validation_weeks=validation,
+                    candidate_scores=[("Holt's Trend",score,'Validated')])
     family = dict(arima_rmse=float('inf'), holt_rmse=float('inf'))
     candidates = [('ARIMA', order, trend) for order in ORDERS
                   if training >= max(4, 3 * (order[0] + order[2] + 1))
@@ -135,7 +147,8 @@ def evaluate_series(series, horizon):
     candidates.append(("Holt's Trend", None, None))
     ranked = []
     scores = []
-    for kind, order, extra in candidates:
+    for candidate_index, (kind, order, extra) in enumerate(candidates):
+        if progress: progress(candidate_index/(len(candidates)+1), f'Evaluating model {candidate_index+1} of {len(candidates)}')
         try:
             preds = np.asarray([_fit_predict(series[:at], kind, order, extra) for at in range(training, n)])
             score = float(np.sqrt(np.mean((actual-preds)**2)))
@@ -153,6 +166,7 @@ def evaluate_series(series, horizon):
             forecast = _future(series, kind, horizon, order, extra)
         except Exception:
             continue
+        if progress: progress(1, 'Model selected and refitted')
         return dict(model=kind, order=order, extra=extra, **family, selected_rmse=score,
                     validation_actual=actual, validation_pred=preds,
                     forecast=np.maximum(0, forecast), train_weeks=training,

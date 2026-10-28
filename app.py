@@ -28,6 +28,7 @@ def worker(job_id,file_path,forecast_months,output,mode='weekly'):
         with LOCK: JOBS[job_id].update(percent=5,detail='Data validated. Waiting to begin forecasting...')
         # Serialize complete jobs because matplotlib is not thread-safe.
         with FORECAST_LOCK:
+            with LOCK: JOBS[job_id].update(detail='Evaluating forecasting models...',status='running')
             results=engine.run_all(datasets,forecast_months,report)
             with LOCK: JOBS[job_id].update(percent=95,detail='Creating Excel results and charts...')
             if mode=='weekly': engine.write_workbook(results,warnings_list,output)

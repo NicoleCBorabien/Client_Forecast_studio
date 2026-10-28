@@ -1,6 +1,7 @@
 """Generic PhilRice Specific Tag forecasting engine (chronological 80/20 validation)."""
 from __future__ import annotations
 import math
+import copy
 import warnings
 from pathlib import Path
 import numpy as np
@@ -94,8 +95,8 @@ def read_inputs(path: Path):
     return result
 
 
-def evaluate_series(series, horizon):
-    fit = shared_evaluate(series, horizon)
+def evaluate_series(series, horizon, progress=None):
+    fit = shared_evaluate(series, horizon, progress=progress)
     fit['train_months'] = fit['train_weeks']
     fit['validation_months'] = fit['validation_weeks']
     fit['model'] = display_model(fit['model'], fit['order'], fit['extra'])
@@ -107,11 +108,19 @@ def evaluate_series(series, horizon):
 def run_all(datasets, horizon, report):
     """Forecast each employee/tag, updating the supplied progress callback after every tag."""
     jobs = sum(len(m.columns) for m in datasets.values())
-    done = 0; result = {}
+    done = 0; result = {}; cache = {}
     for employee, matrix in datasets.items():
         tags = {}
         for tag in matrix.columns:
-            tags[tag] = evaluate_series(matrix[tag].to_numpy(float), horizon)
+            values = matrix[tag].to_numpy(float)
+            key = (values.tobytes(), len(values), horizon)
+            if key in cache:
+                tags[tag] = copy.deepcopy(cache[key])
+            else:
+                def progress(fraction, detail):
+                    report(done + fraction, jobs, f'{employee} — {tag}: {detail}')
+                tags[tag] = evaluate_series(values, horizon, progress)
+                cache[key] = copy.deepcopy(tags[tag])
             done += 1
             report(done, jobs, f'{employee} — {tag} ({done}/{jobs})')
         dates = pd.date_range(matrix.index[-1] + pd.offsets.MonthBegin(1), periods=horizon, freq='MS')

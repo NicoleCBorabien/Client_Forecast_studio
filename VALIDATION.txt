@@ -10,3 +10,5 @@ Validation completed on Linux, 28 October 2026.
 - Outputs contain charts; Methodology and Candidate RMSE sheets are absent.
 - Approved single-column layout, template button, and RUN FORECAST controls verified in source.
 - Windows EXE compilation/launch and browser rendering were not tested in this environment.
+
+Performance revision: constant zero/nonzero histories verified against Holt forecasts; monthly example completed with intermediate model progress in approximately 1 second on the test host. Windows runtime not benchmarked.

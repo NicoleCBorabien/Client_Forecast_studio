@@ -32,3 +32,5 @@ Weekly forecasts are generated every 7 days through the requested calendar-month
 All outputs include overview, forecasts, validation, raw RMSE, and charts. No Methodology or Candidate RMSE sheet is included. Files are processed by a server bound to 127.0.0.1. Temporary uploads/results are kept in the operating-system temporary directory. No external service is used for forecasting.
 
 Progress is shown after RUN FORECAST: validation/preparation 0–5%, completed employee/tag series 5–90%, Excel creation 95%, ready to download 100%. This indicates completed work, not estimated time remaining.
+
+Performance update: monthly progress updates during candidate evaluation. Exactly constant series use Holt trend directly; identical histories within a monthly run reuse an independently copied fit. Changing series retain the expanded ARIMA search and rolling validation. A single candidate can still take time; progress measures completed work, not time remaining.
